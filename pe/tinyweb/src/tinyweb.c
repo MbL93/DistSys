@@ -55,19 +55,20 @@ static volatile sig_atomic_t server_running = false;
 
 //MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
-int bind(int sd, struct sockaddr *addr, int addr_size);
+//int bind(int sd, struct sockaddr *addr, int addr_size);
 
 
 static void
 sig_handler(int sig)
 {
+
     switch(sig) {
     case SIGINT:
                 // use our own thread-safe implemention of printf
                 safe_printf("\n[%d] Server terminated due to keyboard interrupt\n", getpid());
                 server_running = false;
                 break;
-            case SIGCHLD:
+            /*case SIGCHLD:
                 while (waitpid(-1, &status, WNOHANG) > 0) {
                 }
                 break;
@@ -78,7 +79,7 @@ sig_handler(int sig)
             case SIGSEGV:
                 safe_printf("\n[%d] Server terminated due to segmentation fault\n", getpid());
                 server_running = false;
-                break;
+                break;*/
             default:
                 break;
     } /* end switch */
@@ -91,10 +92,10 @@ sig_handler(int sig)
 static void
 print_usage(const char *progname)
 {
-  fprintf(stderr, "Usage: %s options\n", progname,
+  fprintf(stderr, "Usage: %s options\n", progname);/*
 		  "\t-d\tdefines the directory of web-files being loaded\n",
           "\t-f\tdefines logfile-destination(logging into stdout, if option not set\n",
-          "\t-p\tdefines the port\n");
+          "\t-p\tdefines the port\n");*/
 } /* end of print_usage */
 
 
@@ -252,9 +253,12 @@ int
 main(int argc, char *argv[])
 {
 	
-	
+	pid_t pid;
 	int sd, port = 8080; 
-	struct sockaddr_in server; 
+	int nsd;
+	struct sockaddr_in client_sa;
+	ssize_t client_sa_len;
+	struct sockaddr_in server;
 	memset(&server, 0, sizeof(server)); 
 	server.sin_family = AF_INET; 
 	server.sin_addr.s_addr = INADDR_ANY; 
@@ -284,13 +288,13 @@ main(int argc, char *argv[])
 
 		//Create Soccket
 		sd = socket(AF_INET, SOCK_STREAM, 0); 
-		if (sd == -1) { 
-		  perror(“socket()”); 
-		  exit(1); 
+		if (sd == -1) {
+			/*perror("error")*/
+			exit(1);
 		} /* end if */ 
 		
 		//bind the socket 
-		if(bind(sd, &server, sizeof(server)) != 0) { 
+		if(bind(sd, (struct sockaddr *)&server, sizeof(server)) != 0) {
 			perror("ERROR: bind() "); 
 		} /* end if */
 
@@ -307,12 +311,12 @@ main(int argc, char *argv[])
     while(server_running) {
 		
 		client_sa_len = sizeof(client_sa); 
-		nsd = accept(sd, (structsockaddr *)&client_sa, &client_sa_len); 
+		nsd = accept(sd, (struct sockaddr *)&client_sa, (socklen_t *)&client_sa_len);
 		if (nsd < 0) { 
 			if (errno == EINTR) 
 				continue; 
 			/* handle error */ 
-			  if ((pid = fork()) < 0) { 
+			  if ((pid = fork()) < 0) {
 				perror("fork()"); 
 				exit(1); 
 			  } else if (pid > 0) { /* parent process */ 
@@ -322,7 +326,7 @@ main(int argc, char *argv[])
 				dup2(nsd, 0); /* replace stdin */ 
 				dup2(nsd, 1); /* replace stdout */ 
 				dup2(nsd, 2); /* replace stderr */ 
-				execvp(“ls", argv); 
+				execvp("ls", argv);
 				perror("exec() of ls failed"); 
 				exit(1); 
 			  } /* end if */ 
