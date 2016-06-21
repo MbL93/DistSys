@@ -52,7 +52,12 @@ static volatile sig_atomic_t server_running = false;
 // TODO: Include your function header here
 //
 
+
 //MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
+
+int bind(int sd, struct sockaddr *addr, int addr_size);
+
+
 static void
 sig_handler(int sig)
 {
@@ -81,7 +86,7 @@ sig_handler(int sig)
 //MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM
 
 //
-// TODO: Include your function header here
+// TODO: Include your function r here
 //
 static void
 print_usage(const char *progname)
@@ -246,6 +251,16 @@ install_signal_handlers(void)
 int
 main(int argc, char *argv[])
 {
+	
+	
+	int sd, port = 8080; 
+	struct sockaddr_in server; 
+	memset(&server, 0, sizeof(server)); 
+	server.sin_family = AF_INET; 
+	server.sin_addr.s_addr = INADDR_ANY; 
+	server.sin_port = htons(port); 
+	
+	
     int retcode = EXIT_SUCCESS;
     prog_options_t my_opt;
 
@@ -267,12 +282,52 @@ main(int argc, char *argv[])
     install_signal_handlers();
     init_logging_semaphore();
 
+		//Create Soccket
+		sd = socket(AF_INET, SOCK_STREAM, 0); 
+		if (sd == -1) { 
+		  perror(“socket()”); 
+		  exit(1); 
+		} /* end if */ 
+		
+		//bind the socket 
+		if(bind(sd, &server, sizeof(server)) != 0) { 
+			perror("ERROR: bind() "); 
+		} /* end if */
+
+		/* convert to listening socket with 5 pending slots */ 
+		if (listen(sd, 5) != 0) { 
+		  perror("ERROR: listen() "); 
+		} /* end if */ 		
+		
     // TODO: start the server and handle clients...
     // here, as an example, show how to interact with the
     // condition set by the signal handler above
     printf("[%d] Starting server '%s'...\n", getpid(), my_opt.progname);
     server_running = true;
     while(server_running) {
+		
+		client_sa_len = sizeof(client_sa); 
+		nsd = accept(sd, (structsockaddr *)&client_sa, &client_sa_len); 
+		if (nsd < 0) { 
+			if (errno == EINTR) 
+				continue; 
+			/* handle error */ 
+			  if ((pid = fork()) < 0) { 
+				perror("fork()"); 
+				exit(1); 
+			  } else if (pid > 0) { /* parent process */ 
+				close(nsd); 
+			  } else { /* child process */ 
+				close(sd); 
+				dup2(nsd, 0); /* replace stdin */ 
+				dup2(nsd, 1); /* replace stdout */ 
+				dup2(nsd, 2); /* replace stderr */ 
+				execvp(“ls", argv); 
+				perror("exec() of ls failed"); 
+				exit(1); 
+			  } /* end if */ 
+		} 	/* end if */ 
+		/* serve client */
         pause();
     } /* end while */
 
