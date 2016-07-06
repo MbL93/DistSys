@@ -57,6 +57,101 @@ static volatile sig_atomic_t server_running = false;
 
 //int bind(int sd, struct sockaddr *addr, int addr_size);
 
+// Aufgabe 2
+// functionname: get_options
+// description:
+// parameters
+// global variables:
+// value of return: success
+
+static int
+get_options(int argc, char *argv[], prog_options_t *opt) {
+    int given;
+    int success = 1;
+    int error;
+    struct addrinfo hints;
+    char *p;
+    p = strrchr(argv[0], '/');
+    if (p) {
+        p++;
+    } else {
+        p = argv[0];
+    }
+
+    opt->progname = (char *) malloc(strlen(p) + 1);
+    if (opt->progname != NULL) {
+        strcpy(opt->progname, p);
+    } else {
+        err_print("cannot allocate memory");
+        return EXIT_FAILURE;
+    }
+    opt->root_dir = NULL;	
+    opt->log_filename = NULL;
+    opt->server_addr = NULL;
+    opt->verbose = 0;
+    opt->timeout = 120;
+
+    memset(&hints, 0, sizeof (struct addrinfo));
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_family = AF_UNSPEC; /* Allows IPv4 or IPv6 */
+    hints.ai_flags = AI_PASSIVE | AI_NUMERICSERV;
+
+    while (success) {
+        int option_index = 0;
+        static struct option long_options[] = {
+	    { "dir", required_argument, 0, 0},
+            { "file", required_argument, 0, 0},
+            { "port", required_argument, 0, 0},
+            { "verbose", no_argument, 0, 0},
+            { "debug", no_argument, 0, 0},
+            { NULL, 0, 0, 0}
+        };
+
+        given = getopt_long(argc, argv, "f:p:d:hv", long_options, &option_index);
+        if (given == -1) break;
+
+        switch (given) {
+	    case 'd':
+                opt->root_dir = (char *) malloc(strlen(optarg) + 1);
+                if (opt->root_dir != NULL) {
+                    strcpy(opt->root_dir, optarg);
+                } else {
+                    err_print("cannot allocate memory");
+                    return EXIT_FAILURE;
+                }
+                break;
+            case 'f':
+                opt->log_filename = (char *) malloc(strlen(optarg) + 1);
+                if (opt->log_filename != NULL) {
+                    strcpy(opt->log_filename, optarg);
+                } else {
+                    err_print("cannot allocate memory");
+                    return EXIT_FAILURE;
+                }
+                break;
+            case 'p':
+                if ((error = getaddrinfo(NULL, optarg, &hints, &opt->server_addr)) != 0) {
+                    fprintf(stderr, "Cannot resolve the service '%s': %s\n", optarg, gai_strerror(err));
+                    return EXIT_FAILURE;
+                }
+                opt->server_port = (int) ntohs(((struct sockaddr_in*) opt->server_addr->ai_addr)->sin_port);
+                break;
+            case 'h':
+                break;
+            case 'v':
+                opt->verbose = 1;
+                break;
+            default:
+                success = 0;
+        }
+    }
+
+    // check presence of required program parameters
+    success = success && opt->server_addr && opt->root_dir;
+
+
+    return success;
+}
 
 static void
 sig_handler(int sig)
